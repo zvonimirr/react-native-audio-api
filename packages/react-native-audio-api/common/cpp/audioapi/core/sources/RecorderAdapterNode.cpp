@@ -17,12 +17,12 @@ RecorderAdapterNode::RecorderAdapterNode(const std::shared_ptr<BaseAudioContext>
     : AudioNode(context, AudioScheduledSourceNodeOptions()) {
   // It should be marked as initialized only after it is connected to the
   // recorder. Internal buffer size is based on the recorder's buffer length.
-  isInitialized_ = false;
+  isInitialized_.store(false, std::memory_order_release);
 }
 
 void RecorderAdapterNode::init(size_t bufferSize, int channelCount, float sampleRate) {
   std::shared_ptr<BaseAudioContext> context = context_.lock();
-  if (isInitialized_ || context == nullptr) {
+  if (isInitialized_.load(std::memory_order_acquire) || context == nullptr) {
     return;
   }
 
@@ -56,21 +56,22 @@ void RecorderAdapterNode::init(size_t bufferSize, int channelCount, float sample
     overflowSize_ = 0;
   }
 
-  isInitialized_ = true;
+  isInitialized_.store(true, std::memory_order_release);
 }
 
 void RecorderAdapterNode::cleanup() {
-  isInitialized_ = false;
   needsResampling_ = false;
   buff_.clear();
   resampler_.reset();
   overflowSize_ = 0;
+
+  isInitialized_.store(false, std::memory_order_release);
 }
 
 std::shared_ptr<AudioBuffer> RecorderAdapterNode::processNode(
     const std::shared_ptr<AudioBuffer> &processingBuffer,
     int framesToProcess) {
-  if (!isInitialized_) {
+  if (!isInitialized_.load(std::memory_order_acquire)) {
     processingBuffer->zero();
     return processingBuffer;
   }

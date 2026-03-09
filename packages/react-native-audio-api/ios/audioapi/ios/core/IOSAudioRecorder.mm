@@ -50,7 +50,7 @@ IOSAudioRecorder::IOSAudioRecorder(
 
     if (isConnected()) {
       if (auto lock = Locker::tryLock(adapterNodeMutex_)) {
-        for (size_t channel = 0; channel < adapterNode_->channelCount_; ++channel) {
+        for (size_t channel = 0; channel < adapterNode_->getChannelCount(); ++channel) {
           auto data = (float *)inputBuffer->mBuffers[channel].mData;
 
           adapterNode_->buff_[channel]->write(data, numFrames);
@@ -125,7 +125,6 @@ Result<std::string, std::string> IOSAudioRecorder::start(const std::string &file
   }
 
   if (isConnected()) {
-    // TODO: pass sample rate, in case conversion is necessary
     adapterNode_->init(maxInputBufferLength, inputFormat.channelCount, inputFormat.sampleRate);
   }
 

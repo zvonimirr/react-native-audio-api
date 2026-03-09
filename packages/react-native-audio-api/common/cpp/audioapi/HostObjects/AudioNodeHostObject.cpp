@@ -10,7 +10,12 @@ namespace audioapi {
 AudioNodeHostObject::AudioNodeHostObject(
     const std::shared_ptr<AudioNode> &node,
     const AudioNodeOptions &options)
-    : node_(node) {
+    : node_(node),
+      numberOfInputs_(options.numberOfInputs),
+      numberOfOutputs_(options.numberOfOutputs),
+      channelCount_(options.channelCount),
+      channelCountMode_(options.channelCountMode),
+      channelInterpretation_(options.channelInterpretation) {
   addGetters(
       JSI_EXPORT_PROPERTY_GETTER(AudioNodeHostObject, numberOfInputs),
       JSI_EXPORT_PROPERTY_GETTER(AudioNodeHostObject, numberOfOutputs),
@@ -30,25 +35,25 @@ AudioNodeHostObject::AudioNodeHostObject(
 AudioNodeHostObject::~AudioNodeHostObject() = default;
 
 JSI_PROPERTY_GETTER_IMPL(AudioNodeHostObject, numberOfInputs) {
-  return {node_->getNumberOfInputs()};
+  return {numberOfInputs_};
 }
 
 JSI_PROPERTY_GETTER_IMPL(AudioNodeHostObject, numberOfOutputs) {
-  return {node_->getNumberOfOutputs()};
+  return {numberOfOutputs_};
 }
 
 JSI_PROPERTY_GETTER_IMPL(AudioNodeHostObject, channelCount) {
-  return {static_cast<int>(node_->getChannelCount())};
+  return {static_cast<int>(channelCount_)};
 }
 
 JSI_PROPERTY_GETTER_IMPL(AudioNodeHostObject, channelCountMode) {
   return jsi::String::createFromUtf8(
-      runtime, js_enum_parser::channelCountModeToString(node_->getChannelCountMode()));
+      runtime, js_enum_parser::channelCountModeToString(channelCountMode_));
 }
 
 JSI_PROPERTY_GETTER_IMPL(AudioNodeHostObject, channelInterpretation) {
   return jsi::String::createFromUtf8(
-      runtime, js_enum_parser::channelInterpretationToString(node_->getChannelInterpretation()));
+      runtime, js_enum_parser::channelInterpretationToString(channelInterpretation_));
 }
 
 JSI_HOST_FUNCTION_IMPL(AudioNodeHostObject, connect) {

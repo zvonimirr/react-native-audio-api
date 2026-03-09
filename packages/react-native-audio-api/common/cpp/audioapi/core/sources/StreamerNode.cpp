@@ -38,7 +38,11 @@ StreamerNode::StreamerNode(
       hasBufferedAudioData_(false),
       audio_stream_index_(-1),
       maxResampledSamples_(0),
-      processedSamples_(0) {}
+      processedSamples_(0) {
+#if !RN_AUDIO_API_FFMPEG_DISABLED
+  initialize(options.streamPath);
+#endif // RN_AUDIO_API_FFMPEG_DISABLED
+}
 #else
 StreamerNode::StreamerNode(
     const std::shared_ptr<BaseAudioContext> &context,
@@ -49,60 +53,6 @@ StreamerNode::StreamerNode(
 StreamerNode::~StreamerNode() {
 #if !RN_AUDIO_API_FFMPEG_DISABLED
   cleanup();
-#endif // RN_AUDIO_API_FFMPEG_DISABLED
-}
-
-bool StreamerNode::initialize(const std::string &input_url) {
-#if !RN_AUDIO_API_FFMPEG_DISABLED
-  streamPath_ = input_url;
-  std::shared_ptr<BaseAudioContext> context = context_.lock();
-  if (context == nullptr) {
-    return false;
-  }
-
-  if (isInitialized_) {
-    cleanup();
-  }
-
-  if (!openInput(input_url)) {
-    if (VERBOSE)
-      printf("Failed to open input\n");
-    return false;
-  }
-
-  if (!findAudioStream() || !setupDecoder() || !setupResampler(context->getSampleRate())) {
-    if (VERBOSE)
-      printf("Failed to find/setup audio stream\n");
-    cleanup();
-    return false;
-  }
-
-  pkt_ = av_packet_alloc();
-  frame_ = av_frame_alloc();
-
-  if (pkt_ == nullptr || frame_ == nullptr) {
-    if (VERBOSE)
-      printf("Failed to allocate packet or frame\n");
-    cleanup();
-    return false;
-  }
-
-  channelCount_ = codecpar_->ch_layout.nb_channels;
-  audioBuffer_ =
-      std::make_shared<AudioBuffer>(RENDER_QUANTUM_SIZE, channelCount_, context->getSampleRate());
-
-  auto [sender, receiver] = channels::spsc::channel<
-      StreamingData,
-      STREAMER_NODE_SPSC_OVERFLOW_STRATEGY,
-      STREAMER_NODE_SPSC_WAIT_STRATEGY>(CHANNEL_CAPACITY);
-  sender_ = std::move(sender);
-  receiver_ = std::move(receiver);
-
-  streamingThread_ = std::thread(&StreamerNode::streamAudio, this);
-  isInitialized_ = true;
-  return true;
-#else
-  return false;
 #endif // RN_AUDIO_API_FFMPEG_DISABLED
 }
 
@@ -159,6 +109,56 @@ std::shared_ptr<AudioBuffer> StreamerNode::processNode(
 }
 
 #if !RN_AUDIO_API_FFMPEG_DISABLED
+bool StreamerNode::initialize(const std::string &input_url) {
+  streamPath_ = input_url;
+  std::shared_ptr<BaseAudioContext> context = context_.lock();
+  if (context == nullptr) {
+    return false;
+  }
+
+  if (isInitialized_.load(std::memory_order_acquire)) {
+    return false;
+  }
+
+  if (!openInput(input_url)) {
+    if (VERBOSE)
+      printf("Failed to open input\n");
+    return false;
+  }
+
+  if (!findAudioStream() || !setupDecoder() || !setupResampler(context->getSampleRate())) {
+    if (VERBOSE)
+      printf("Failed to find/setup audio stream\n");
+    cleanup();
+    return false;
+  }
+
+  pkt_ = av_packet_alloc();
+  frame_ = av_frame_alloc();
+
+  if (pkt_ == nullptr || frame_ == nullptr) {
+    if (VERBOSE)
+      printf("Failed to allocate packet or frame\n");
+    cleanup();
+    return false;
+  }
+
+  channelCount_ = codecpar_->ch_layout.nb_channels;
+  audioBuffer_ =
+      std::make_shared<AudioBuffer>(RENDER_QUANTUM_SIZE, channelCount_, context->getSampleRate());
+
+  auto [sender, receiver] = channels::spsc::channel<
+      StreamingData,
+      STREAMER_NODE_SPSC_OVERFLOW_STRATEGY,
+      STREAMER_NODE_SPSC_WAIT_STRATEGY>(CHANNEL_CAPACITY);
+  sender_ = std::move(sender);
+  receiver_ = std::move(receiver);
+
+  streamingThread_ = std::thread(&StreamerNode::streamAudio, this);
+  isInitialized_.store(true, std::memory_order_release);
+  return true;
+}
+
 bool StreamerNode::setupResampler(float outSampleRate) {
   const int n = codecCtx_->ch_layout.nb_channels;
   const int maxInLen = codecCtx_->frame_size > 0 ? codecCtx_->frame_size : 8192;
@@ -345,10 +345,10 @@ void StreamerNode::cleanup() {
 
   resampler_.reset();
   audio_stream_index_ = -1;
-  isInitialized_ = false;
   decoder_ = nullptr;
   codecpar_ = nullptr;
   maxResampledSamples_ = 0;
+  isInitialized_.store(false, std::memory_order_release);
 }
 #endif // RN_AUDIO_API_FFMPEG_DISABLED
 } // namespace audioapi
