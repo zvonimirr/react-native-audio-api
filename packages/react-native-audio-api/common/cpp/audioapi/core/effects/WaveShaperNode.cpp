@@ -2,7 +2,6 @@
 #include <audioapi/core/effects/WaveShaperNode.h>
 #include <audioapi/dsp/VectorMath.h>
 #include <audioapi/types/NodeOptions.h>
-#include <audioapi/utils/AudioArrayBuffer.hpp>
 
 #include <memory>
 
@@ -37,8 +36,8 @@ void WaveShaperNode::setCurve(const std::shared_ptr<AudioArray> &curve) {
   }
 }
 
-std::shared_ptr<AudioBuffer> WaveShaperNode::processNode(
-    const std::shared_ptr<AudioBuffer> &processingBuffer,
+std::shared_ptr<DSPAudioBuffer> WaveShaperNode::processNode(
+    const std::shared_ptr<DSPAudioBuffer> &processingBuffer,
     int framesToProcess) {
   if (curve_ == nullptr) {
     return processingBuffer;
