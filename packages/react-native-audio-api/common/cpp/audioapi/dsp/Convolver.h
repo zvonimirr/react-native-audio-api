@@ -2,15 +2,14 @@
 
 #include <audioapi/dsp/FFT.h>
 #include <audioapi/utils/AlignedAllocator.hpp>
-#include <audioapi/utils/AudioArray.h>
+#include <audioapi/utils/AudioArray.hpp>
+#include <audioapi/utils/AudioBuffer.hpp>
 #include <complex>
 #include <cstring>
 #include <memory>
 #include <vector>
 
 namespace audioapi {
-
-class AudioBuffer;
 
 class Convolver {
   using aligned_vec_complex =

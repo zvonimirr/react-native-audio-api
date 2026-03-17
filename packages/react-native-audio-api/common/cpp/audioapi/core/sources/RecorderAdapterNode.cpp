@@ -2,8 +2,7 @@
 #include <audioapi/core/sources/RecorderAdapterNode.h>
 #include <audioapi/core/types/ChannelInterpretation.h>
 #include <audioapi/core/utils/Constants.h>
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
 
 #include <algorithm>
 #include <cmath>

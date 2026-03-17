@@ -4,8 +4,8 @@
 #include <audioapi/dsp/VectorMath.h>
 #include <audioapi/ios/core/IOSAudioPlayer.h>
 #include <audioapi/ios/system/AudioEngine.h>
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
+#include <audioapi/utils/AudioBuffer.hpp>
 
 namespace audioapi {
 

@@ -29,8 +29,8 @@
 #include <complex>
 #include <vector>
 
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
+#include <audioapi/utils/AudioBuffer.hpp>
 #include <memory>
 
 namespace audioapi {

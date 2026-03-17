@@ -2,8 +2,8 @@
 #include <audioapi/android/core/AudioPlayer.h>
 #include <audioapi/core/AudioContext.h>
 #include <audioapi/core/utils/Constants.h>
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
+
 #include <jni.h>
 
 #include <algorithm>

@@ -3,8 +3,7 @@
 #include <audioapi/core/utils/AudioGraphManager.h>
 #include <audioapi/dsp/AudioUtils.hpp>
 #include <audioapi/events/AudioEventHandlerRegistry.h>
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
 
 #if !RN_AUDIO_API_TEST
 #include <audioapi/core/AudioContext.h>

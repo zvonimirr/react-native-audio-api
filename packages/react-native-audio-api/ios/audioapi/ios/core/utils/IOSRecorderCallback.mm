@@ -6,8 +6,8 @@
 #include <audioapi/dsp/VectorMath.h>
 #include <audioapi/events/AudioEventHandlerRegistry.h>
 #include <audioapi/ios/core/utils/IOSRecorderCallback.h>
-#include <audioapi/utils/AudioArray.h>
-#include <audioapi/utils/AudioBuffer.h>
+#include <audioapi/utils/AudioArray.hpp>
+#include <audioapi/utils/AudioBuffer.hpp>
 #include <audioapi/utils/CircularAudioArray.h>
 #include <audioapi/utils/Result.hpp>
 #include <algorithm>
