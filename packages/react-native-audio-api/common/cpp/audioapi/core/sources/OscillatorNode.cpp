@@ -1,5 +1,6 @@
 #include <audioapi/core/BaseAudioContext.h>
 #include <audioapi/core/sources/OscillatorNode.h>
+#include <audioapi/core/utils/Constants.h>
 #include <audioapi/dsp/AudioUtils.hpp>
 #include <audioapi/types/NodeOptions.h>
 #include <audioapi/utils/AudioArray.hpp>
@@ -75,7 +76,7 @@ std::shared_ptr<DSPAudioBuffer> OscillatorNode::processNode(
   }
 
   auto time =
-      context->getCurrentTime() + static_cast<double>(startOffset) * 1.0 / context->getSampleRate();
+      context->getCurrentTime() + static_cast<double>(startOffset) / context->getSampleRate();
   auto detuneSpan = detuneParam_->processARateParam(framesToProcess, time)->getChannel(0)->span();
   auto freqSpan = frequencyParam_->processARateParam(framesToProcess, time)->getChannel(0)->span();
 
@@ -83,34 +84,30 @@ std::shared_ptr<DSPAudioBuffer> OscillatorNode::processNode(
   const auto tableScale = periodicWave_->getScale();
   const auto numChannels = processingBuffer->getNumberOfChannels();
 
-  auto finalPhase = phase_;
+  auto channelSpan = processingBuffer->getChannel(0)->span();
+  float currentPhase = phase_;
 
-  for (size_t ch = 0; ch < numChannels; ch += 1) {
-    auto channelSpan = processingBuffer->getChannel(ch)->span();
-    float currentPhase = phase_;
+  for (size_t i = startOffset; i < offsetLength; i += 1) {
+    auto detuneRatio = detuneSpan[i] == 0 ? 1.0f : exp2f(detuneSpan[i] * CENTS_TO_RATIO);
+    auto detunedFrequency = freqSpan[i] * detuneRatio;
+    auto phaseIncrement = detunedFrequency * tableScale;
 
-    for (size_t i = startOffset; i < offsetLength; i += 1) {
-      auto detuneRatio = detuneSpan[i] == 0 ? 1.0f : std::pow(2.0f, detuneSpan[i] / 1200.0f);
-      auto detunedFrequency = freqSpan[i] * detuneRatio;
-      auto phaseIncrement = detunedFrequency * tableScale;
+    channelSpan[i] = periodicWave_->getSample(detunedFrequency, currentPhase, phaseIncrement);
 
-      channelSpan[i] = periodicWave_->getSample(detunedFrequency, currentPhase, phaseIncrement);
+    currentPhase += phaseIncrement;
 
-      currentPhase += phaseIncrement;
-
-      if (currentPhase >= tableSize) {
-        currentPhase -= tableSize;
-      } else if (currentPhase < 0.0f) {
-        currentPhase += tableSize;
-      }
-    }
-
-    if (ch == 0) {
-      finalPhase = currentPhase;
+    if (currentPhase >= tableSize) {
+      currentPhase -= tableSize;
+    } else if (currentPhase < 0.0f) {
+      currentPhase += tableSize;
     }
   }
 
-  phase_ = finalPhase;
+  phase_ = currentPhase;
+
+  for (size_t ch = 1; ch < numChannels; ch += 1) {
+    processingBuffer->getChannel(ch)->copy(*processingBuffer->getChannel(0));
+  }
   handleStopScheduled();
 
   return processingBuffer;
