@@ -1,5 +1,7 @@
 #pragma once
 
+#include <audioapi/core/sources/AudioFileSourceNode.h>
+#include <audioapi/core/sources/MediaElementAudioSourceNode.h>
 #include <audioapi/core/utils/AudioDestructor.hpp>
 #include <audioapi/utils/AudioBuffer.hpp>
 #include <audioapi/utils/Macros.h>
@@ -14,7 +16,6 @@ namespace audioapi {
 class AudioNode;
 class AudioScheduledSourceNode;
 class AudioParam;
-
 #define AUDIO_GRAPH_MANAGER_SPSC_OPTIONS \
   std::unique_ptr<Event>, channels::spsc::OverflowStrategy::WAIT_ON_FULL, \
       channels::spsc::WaitStrategy::BUSY_LOOP
@@ -141,10 +142,23 @@ class AudioGraphManager {
   template <typename U>
     requires std::derived_from<U, AudioNode>
   static bool canBeDestructed(std::shared_ptr<U> const &node) {
-    // If the node is an AudioScheduledSourceNode, we need to check if it is
-    // playing
+    // Scheduled sources need playback-state-aware cleanup rules.
     if constexpr (std::is_base_of_v<AudioScheduledSourceNode, U>) {
+      // AudioFileSourceNode instances are stored as AudioScheduledSourceNode in
+      // sourceNodes_, so detect them via RTTI without creating a new
+      // shared_ptr that would temporarily bump the refcount.
+      if (auto *fileNode = dynamic_cast<AudioFileSourceNode *>(node.get())) {
+        return node.use_count() == 1 && fileNode->filePaused();
+      }
+
       return node.use_count() == 1 && (node->isUnscheduled() || node->isFinished());
+    }
+
+    // if underlying engine node has count of 2 it means that only manager and media element source node are holding a reference to it,
+    // thus this node can be destructed, decreasing count to 1 and enabling file source node to be destructed as well
+    if (auto *mediaElementNode = dynamic_cast<MediaElementAudioSourceNode *>(node.get())) {
+      return node.use_count() == 1 && mediaElementNode->getFileSourceNodeUseCount() == 2 &&
+          mediaElementNode->fileSourceNodePaused();
     }
 
     if (node->requiresTailProcessing()) {

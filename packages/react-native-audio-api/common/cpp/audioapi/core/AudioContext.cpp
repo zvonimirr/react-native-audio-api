@@ -6,6 +6,7 @@
 
 #include <audioapi/core/AudioContext.h>
 #include <audioapi/core/destinations/AudioDestinationNode.h>
+#include <audioapi/core/sources/MediaElementAudioSourceNode.h>
 #include <audioapi/core/utils/AudioGraphManager.h>
 #include <memory>
 
@@ -98,6 +99,20 @@ std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> AudioContext::renderAu
 
 bool AudioContext::isDriverRunning() const {
   return audioPlayer_->isRunning();
+}
+
+std::shared_ptr<MediaElementAudioSourceNode> AudioContext::createMediaElementSource(
+    const std::shared_ptr<AudioFileSourceNode> &fileSource) {
+
+  auto mediaElementSource = std::make_shared<MediaElementAudioSourceNode>(
+      shared_from_this(),
+      fileSource,
+      MediaElementAudioSourceOptions(static_cast<int>(fileSource->getChannelCount())));
+
+  fileSource->bindMediaElementSource(mediaElementSource->getBindingId());
+
+  graphManager_->addProcessingNode(mediaElementSource);
+  return mediaElementSource;
 }
 
 } // namespace audioapi
