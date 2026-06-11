@@ -135,15 +135,14 @@ void AudioBufferBaseSourceNode::processWithPitchCorrection(
 
   runBufferProcessor(playbackRateBuffer_, startOffset, offsetLength, playbackRate, false);
 
+  // Apply the transpose before processing and unconditionally
+  stretch_->setTransposeSemitones(detune);
+
   stretch_->process(
       playbackRateBuffer_.get()[0],
       framesNeededToStretch,
       processingBuffer.get()[0],
       framesToProcess);
-
-  if (detune != 0.0f) {
-    stretch_->setTransposeSemitones(detune);
-  }
 
   sendOnPositionChangedEvent();
 }
