@@ -205,7 +205,8 @@ AndroidAudioRecorder::stop() {
 
     if (usesCallback()) {
       callbackOutputConfigured_.store(false, std::memory_order_release);
-      dataCallback = std::move(dataCallback_);
+      // Keep the JS callback subscription registered across stop/start cycles.
+      dataCallback = dataCallback_;
     }
 
     if (isConnected()) {
