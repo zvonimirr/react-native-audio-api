@@ -28,7 +28,11 @@ void AudioContext::initialize() {
   BaseAudioContext::initialize();
 #ifdef ANDROID
   audioPlayer_ = std::make_shared<AudioPlayer>(
-      this->renderAudio(), getSampleRate(), destination_->getChannelCount());
+      this->renderAudio(),
+      getSampleRate(),
+      destination_->getChannelCount(),
+      &driverMutex_,
+      std::static_pointer_cast<AudioContext>(shared_from_this()));
   audioPlayer_->openAudioStream();
 #else
   audioPlayer_ = std::make_shared<IOSAudioPlayer>(
@@ -36,7 +40,26 @@ void AudioContext::initialize() {
 #endif
 }
 
+bool AudioContext::tryStartDriver() {
+  if (getState() == ContextState::CLOSED) {
+    return false;
+  }
+
+  if (isInitialized_.load(std::memory_order_acquire)) {
+    return false;
+  }
+
+  if (audioPlayer_->start()) {
+    isInitialized_.store(true, std::memory_order_release);
+    setState(ContextState::RUNNING);
+    return true;
+  }
+
+  return false;
+}
+
 void AudioContext::close() {
+  std::scoped_lock lock(driverMutex_);
   setState(ContextState::CLOSED);
 
   audioPlayer_->stop();
@@ -45,6 +68,8 @@ void AudioContext::close() {
 }
 
 bool AudioContext::resume() {
+  std::scoped_lock lock(driverMutex_);
+
   if (getState() == ContextState::CLOSED) {
     return false;
   }
@@ -58,10 +83,12 @@ bool AudioContext::resume() {
     return true;
   }
 
-  return start();
+  return tryStartDriver();
 }
 
 bool AudioContext::suspend() {
+  std::scoped_lock lock(driverMutex_);
+
   if (getState() == ContextState::CLOSED) {
     return false;
   }
@@ -77,18 +104,8 @@ bool AudioContext::suspend() {
 }
 
 bool AudioContext::start() {
-  if (getState() == ContextState::CLOSED) {
-    return false;
-  }
-
-  if (!isInitialized_.load(std::memory_order_acquire) && audioPlayer_->start()) {
-    isInitialized_.store(true, std::memory_order_release);
-    setState(ContextState::RUNNING);
-
-    return true;
-  }
-
-  return false;
+  std::scoped_lock lock(driverMutex_);
+  return tryStartDriver();
 }
 
 std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> AudioContext::renderAudio() {

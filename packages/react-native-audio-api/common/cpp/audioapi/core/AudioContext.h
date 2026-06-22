@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 
 namespace audioapi {
 #ifdef ANDROID
@@ -28,6 +29,8 @@ class AudioContext : public BaseAudioContext {
   bool resume();
   bool suspend();
   bool start();
+
+  /// JS thread only — runs synchronously in `BaseAudioContextHostObject` construction.
   void initialize() override;
 
   std::shared_ptr<MediaElementAudioSourceNode> createMediaElementSource(
@@ -39,11 +42,16 @@ class AudioContext : public BaseAudioContext {
 #else
   std::shared_ptr<IOSAudioPlayer> audioPlayer_;
 #endif
+  /// Serializes `start` / `resume` / `suspend` / `close` across JS and promise-pool threads.
+  mutable std::mutex driverMutex_;
   std::atomic<bool> isInitialized_{false};
 
   bool isDriverRunning() const override;
 
   std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> renderAudio();
+
+  /// Caller must hold `driverMutex_`.
+  bool tryStartDriver();
 };
 
 } // namespace audioapi
