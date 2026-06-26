@@ -11,6 +11,8 @@ type AttachFileSourceOptions = {
   onEnded: () => void;
 };
 
+const MAX_PLAYBACK_RATE = 4;
+
 export class AudioFileSourceNode extends AudioScheduledSourceNode {
   private readonly emitter = new AudioEventEmitter(
     globalThis.AudioEventEmitter
@@ -54,6 +56,19 @@ export class AudioFileSourceNode extends AudioScheduledSourceNode {
 
   setLoop(value: boolean): void {
     (this.node as IAudioFileSourceNode).loop = value;
+  }
+
+  setPlaybackRate(value: number): void {
+    if (!Number.isFinite(value) || value < 0 || value > MAX_PLAYBACK_RATE) {
+      throw new Error(
+        `AudioFileSourceNode: playbackRate must be a non-negative number, less than or equal to ${MAX_PLAYBACK_RATE}.`
+      );
+    }
+    (this.node as IAudioFileSourceNode).playbackRate = value;
+  }
+
+  setPreservesPitch(value: boolean): void {
+    (this.node as IAudioFileSourceNode).preservesPitch = value;
   }
 
   getFileSourceNode(): IAudioFileSourceNode {

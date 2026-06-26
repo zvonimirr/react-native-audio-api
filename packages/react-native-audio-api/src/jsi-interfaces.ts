@@ -59,7 +59,6 @@ export interface IBaseAudioContext {
   readonly sampleRate: number;
   readonly currentTime: number;
   readonly decoder: IAudioDecoder;
-  readonly stretcher: IAudioStretcher;
 
   createRecorderAdapter(): IRecorderAdapterNode;
   createWorkletSourceNode(
@@ -237,6 +236,8 @@ export interface IAudioBufferQueueSourceNode extends IAudioBufferBaseSourceNode 
 
 export interface IAudioFileSourceNode extends IAudioScheduledSourceNode {
   volume?: number;
+  playbackRate: number;
+  preservesPitch: boolean;
   loop: boolean;
   readonly currentTime: number;
   readonly duration: number;
@@ -375,13 +376,6 @@ export interface IAudioDecoder {
     inputSampleRate: number,
     inputChannelCount: number,
     interleaved?: boolean
-  ) => Promise<IAudioBuffer>;
-}
-
-export interface IAudioStretcher {
-  changePlaybackSpeed: (
-    arrayBuffer: IAudioBuffer,
-    playbackSpeed: number
   ) => Promise<IAudioBuffer>;
 }
 

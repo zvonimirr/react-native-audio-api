@@ -5,7 +5,9 @@
 #include <audioapi/types/NodeOptions.h>
 #include <audioapi/utils/AudioArray.hpp>
 
+#include <audioapi/core/utils/WsolaTimeStretcher.h>
 #include <algorithm>
+#include <cmath>
 #include <memory>
 
 namespace audioapi {
@@ -34,9 +36,10 @@ AudioBufferBaseSourceNode::AudioBufferBaseSourceNode(
 }
 
 void AudioBufferBaseSourceNode::initStretch(
-    const std::shared_ptr<signalsmith::stretch::SignalsmithStretch<float>> &stretch,
+    size_t channelCount,
+    float sampleRate,
     const std::shared_ptr<DSPAudioBuffer> &playbackRateBuffer) {
-  stretch_ = stretch;
+  wsolaStretcher_.configure(channelCount, sampleRate);
   playbackRateBuffer_ = playbackRateBuffer;
 }
 
@@ -86,20 +89,16 @@ void AudioBufferBaseSourceNode::processWithPitchCorrection(
     processingBuffer->zero();
     return;
   }
-  auto time = context->getCurrentTime();
-  auto playbackRate = std::clamp(
+  const double time = context->getCurrentTime();
+  const auto rate = std::clamp(
       playbackRateParam_->processKRateParam(framesToProcess, time),
-      MIN_PLAYBACK_RATE,
-      MAX_PLAYBACK_RATE);
-  auto detune = std::clamp(
-      detuneParam_->processKRateParam(framesToProcess, time) / 100.0f,
-      static_cast<float>(-SEMITONES_PER_OCTAVE),
-      static_cast<float>(SEMITONES_PER_OCTAVE));
+      -WsolaTimeStretcher::MAX_PLAYBACK_RATE,
+      WsolaTimeStretcher::MAX_PLAYBACK_RATE);
+
+  const int framesNeededToStretch =
+      std::max(1, static_cast<int>(std::ceil(rate * framesToProcess)));
 
   playbackRateBuffer_->zero();
-
-  auto framesNeededToStretch =
-      std::abs(static_cast<int>(playbackRate * static_cast<float>(framesToProcess)));
 
   updatePlaybackInfo(
       playbackRateBuffer_,
@@ -109,21 +108,26 @@ void AudioBufferBaseSourceNode::processWithPitchCorrection(
       context->getSampleRate(),
       context->getCurrentSampleFrame());
 
-  if (playbackRate == 0.0f || (!isPlaying() && !isStopScheduled()) || stretch_ == nullptr) {
+  if (rate == 0.0f || (!isPlaying() && !isStopScheduled())) {
     processingBuffer->zero();
     return;
   }
 
-  runBufferProcessor(playbackRateBuffer_, startOffset, offsetLength, playbackRate, false);
+  const auto detune = detuneParam_->processKRateParam(framesToProcess, time) / 100.0f;
+  const float pitchFactor = std::pow(
+      2.0f, // NOLINT(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+      detune / static_cast<float>(SEMITONES_PER_OCTAVE));
 
-  // Apply the transpose before processing and unconditionally
-  stretch_->setTransposeSemitones(detune);
+  const float bufferPlaybackRate = rate >= 0.0f ? rate : -rate;
+  runBufferProcessor(playbackRateBuffer_, startOffset, offsetLength, bufferPlaybackRate, false);
 
-  stretch_->process(
-      playbackRateBuffer_.get()[0],
-      framesNeededToStretch,
-      processingBuffer.get()[0],
-      framesToProcess);
+  wsolaStretcher_.process(
+      *playbackRateBuffer_,
+      static_cast<size_t>(framesNeededToStretch),
+      *processingBuffer,
+      static_cast<size_t>(framesToProcess),
+      rate,
+      pitchFactor);
 
   if (isPlaying()) {
     positionChanged_.advance(RENDER_QUANTUM_SIZE, getCurrentPosition());
@@ -172,8 +176,8 @@ void AudioBufferBaseSourceNode::processWithoutPitchCorrection(
 float AudioBufferBaseSourceNode::getComputedPlaybackRateValue(int framesToProcess, double time) {
   auto playbackRate = std::clamp(
       playbackRateParam_->processKRateParam(framesToProcess, time),
-      MIN_PLAYBACK_RATE,
-      MAX_PLAYBACK_RATE);
+      -WsolaTimeStretcher::MAX_PLAYBACK_RATE,
+      WsolaTimeStretcher::MAX_PLAYBACK_RATE);
   auto detune = std::pow(
       2.0f, //NOLINT(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
       detuneParam_->processKRateParam(framesToProcess, time) / static_cast<float>(OCTAVE_RANGE));

@@ -19,12 +19,16 @@ class AudioFileSourceNodeHostObject : public AudioScheduledSourceNodeHostObject 
   DELETE_COPY_AND_MOVE(AudioFileSourceNodeHostObject);
 
   JSI_PROPERTY_GETTER_DECL(volume);
+  JSI_PROPERTY_GETTER_DECL(playbackRate);
+  JSI_PROPERTY_GETTER_DECL(preservesPitch);
   JSI_PROPERTY_GETTER_DECL(loop);
   JSI_PROPERTY_GETTER_DECL(currentTime);
   JSI_PROPERTY_GETTER_DECL(duration);
   JSI_PROPERTY_GETTER_DECL(routedThroughMediaElement);
 
   JSI_PROPERTY_SETTER_DECL(volume);
+  JSI_PROPERTY_SETTER_DECL(playbackRate);
+  JSI_PROPERTY_SETTER_DECL(preservesPitch);
   JSI_PROPERTY_SETTER_DECL(loop);
   JSI_PROPERTY_SETTER_DECL(onPositionChanged);
 
@@ -40,6 +44,8 @@ class AudioFileSourceNodeHostObject : public AudioScheduledSourceNodeHostObject 
   bool loop_;
   double duration_;
   float volume_;
+  float playbackRate_;
+  bool preservesPitch_;
 };
 
 } // namespace audioapi

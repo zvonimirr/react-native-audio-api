@@ -31,6 +31,7 @@ export interface AudioTagHandle {
   seekToTime: (seconds: number) => void;
   setVolume: (volume: number) => void;
   setMuted: (muted: boolean) => void;
+  setPlaybackRate: (playbackRate: number) => void;
 }
 
 /**
