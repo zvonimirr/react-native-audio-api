@@ -2,7 +2,6 @@
 #include <audioapi/core/BaseAudioContext.h>
 #include <audioapi/core/sources/AudioBufferBaseSourceNode.h>
 #include <audioapi/core/utils/Constants.h>
-#include <audioapi/events/AudioEventHandlerRegistry.h>
 #include <audioapi/types/NodeOptions.h>
 #include <audioapi/utils/AudioArray.hpp>
 
@@ -28,7 +27,9 @@ AudioBufferBaseSourceNode::AudioBufferBaseSourceNode(
               MOST_NEGATIVE_SINGLE_FLOAT,
               MOST_POSITIVE_SINGLE_FLOAT,
               context)),
-      onPositionChangedIntervalInFrames_(static_cast<int>(context->getSampleRate())) {
+      positionChanged_(
+          context->getAudioEventHandlerRegistry(),
+          static_cast<int>(context->getSampleRate())) {
   setOnPositionChangedInterval(options.onPositionChangedInterval);
 }
 
@@ -47,18 +48,12 @@ std::shared_ptr<AudioParam> AudioBufferBaseSourceNode::getPlaybackRateParam() co
   return playbackRateParam_;
 }
 
-void AudioBufferBaseSourceNode::setOnPositionChangedCallbackId(uint64_t callbackId) {
-  onPositionChangedCallbackId_ = callbackId;
-}
-
 void AudioBufferBaseSourceNode::setOnPositionChangedInterval(int interval) {
-  onPositionChangedIntervalInFrames_ = static_cast<int>(
-      //NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
-      getContextSampleRate() * static_cast<float>(interval) / 1000);
+  positionChanged_.setIntervalMs(interval, getContextSampleRate());
 }
 
-void AudioBufferBaseSourceNode::unregisterOnPositionChangedCallback(uint64_t callbackId) {
-  audioEventHandlerRegistry_->unregisterHandler(AudioEvent::POSITION_CHANGED, callbackId);
+void AudioBufferBaseSourceNode::assignOnPositionChangedCallbackId(uint64_t callbackId) {
+  positionChanged_.assignCallbackId(callbackId);
 }
 
 std::shared_ptr<DSPAudioBuffer> AudioBufferBaseSourceNode::processNode(
@@ -78,20 +73,6 @@ std::shared_ptr<DSPAudioBuffer> AudioBufferBaseSourceNode::processNode(
   handleStopScheduled();
 
   return processingBuffer;
-}
-
-void AudioBufferBaseSourceNode::sendOnPositionChangedEvent() {
-  if (onPositionChangedCallbackId_ != 0 &&
-      onPositionChangedTimeInFrames_ > onPositionChangedIntervalInFrames_) {
-    audioEventHandlerRegistry_->dispatchEventFromAudioThread(
-        AudioEvent::POSITION_CHANGED,
-        onPositionChangedCallbackId_,
-        DoubleValuePayload{.value = getCurrentPosition()});
-
-    onPositionChangedTimeInFrames_ = 0;
-  }
-
-  onPositionChangedTimeInFrames_ += RENDER_QUANTUM_SIZE;
 }
 
 void AudioBufferBaseSourceNode::processWithPitchCorrection(
@@ -144,7 +125,9 @@ void AudioBufferBaseSourceNode::processWithPitchCorrection(
       processingBuffer.get()[0],
       framesToProcess);
 
-  sendOnPositionChangedEvent();
+  if (isPlaying()) {
+    positionChanged_.advance(RENDER_QUANTUM_SIZE, getCurrentPosition());
+  }
 }
 
 void AudioBufferBaseSourceNode::processWithoutPitchCorrection(
@@ -181,7 +164,9 @@ void AudioBufferBaseSourceNode::processWithoutPitchCorrection(
     runBufferProcessor(processingBuffer, startOffset, offsetLength, computedPlaybackRate, true);
   }
 
-  sendOnPositionChangedEvent();
+  if (isPlaying()) {
+    positionChanged_.advance(RENDER_QUANTUM_SIZE, getCurrentPosition());
+  }
 }
 
 float AudioBufferBaseSourceNode::getComputedPlaybackRateValue(int framesToProcess, double time) {
