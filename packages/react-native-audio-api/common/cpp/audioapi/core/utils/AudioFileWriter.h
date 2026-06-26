@@ -61,7 +61,15 @@ class AudioFileWriter {
   static constexpr auto FILE_WRITER_SPSC_OVERFLOW_STRATEGY =
       channels::spsc::OverflowStrategy::OVERWRITE_ON_FULL;
   static constexpr auto FILE_WRITER_SPSC_WAIT_STRATEGY = channels::spsc::WaitStrategy::ATOMIC_WAIT;
-  static constexpr auto FILE_WRITER_CHANNEL_CAPACITY = 64;
+  static constexpr size_t FILE_WRITER_POOL_SIZE = 32;
+  // SPSC rings hold at most (capacity - 1) elements.
+  static constexpr auto FILE_WRITER_CHANNEL_CAPACITY = FILE_WRITER_POOL_SIZE + 1;
+  // At most POOL_SIZE slots can be in flight at once, so sizing the channel one
+  // larger guarantees the ring is never full when a slot is available — which is
+  // why the producer can use the blocking send() without it ever actually waiting.
+  static_assert(
+      FILE_WRITER_POOL_SIZE <= FILE_WRITER_CHANNEL_CAPACITY - 1,
+      "Channel must hold every in-flight slot so send() never blocks/overwrites");
 };
 
 } // namespace audioapi
