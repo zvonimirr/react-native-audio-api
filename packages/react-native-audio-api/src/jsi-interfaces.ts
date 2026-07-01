@@ -371,7 +371,6 @@ export interface IAudioDecoder {
     sourcePath: string,
     sampleRate?: number
   ) => Promise<IAudioBuffer>;
-  getDurationWithFilePath: (sourcePath: string) => Promise<number>;
   decodeWithPCMInBase64: (
     b64: string,
     inputSampleRate: number,
@@ -386,8 +385,9 @@ export interface IAudioFileUtils {
     outputPath: string
   ) => Promise<string>;
   probeDuration: (
-    data: ArrayBuffer,
-    sampleRate?: number
+    input: ArrayBuffer | string,
+    sampleRate?: number,
+    headers?: Record<string, string>
   ) => Promise<number | null>;
 }
 
