@@ -21,7 +21,7 @@ class AudioPlayer : public AudioStreamDataCallback,
  public:
   friend class AudioContext;
   AudioPlayer(
-      const std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> &renderAudio,
+      const std::function<void(DSPAudioBuffer *, int)> &renderAudio,
       float sampleRate,
       int channelCount,
       std::mutex *driverMutex,
@@ -47,7 +47,7 @@ class AudioPlayer : public AudioStreamDataCallback,
   void onErrorAfterClose(AudioStream *audioStream, Result error) override;
 
  private:
-  std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> renderAudio_;
+  std::function<void(DSPAudioBuffer *, int)> renderAudio_;
   std::atomic<uint32_t> &currentRenders_;
   std::shared_ptr<AudioStream> mStream_;
   std::shared_ptr<DSPAudioBuffer> buffer_;

@@ -6,8 +6,6 @@
 
 #include <audioapi/core/AudioContext.h>
 #include <audioapi/core/destinations/AudioDestinationNode.h>
-#include <audioapi/core/sources/MediaElementAudioSourceNode.h>
-#include <audioapi/core/utils/AudioGraphManager.h>
 #include <memory>
 #include <thread>
 
@@ -25,11 +23,11 @@ AudioContext::~AudioContext() {
   }
 }
 
-void AudioContext::initialize() {
-  BaseAudioContext::initialize();
+void AudioContext::initialize(const AudioDestinationNode *destination) {
+  BaseAudioContext::initialize(destination);
 #ifdef ANDROID
   audioPlayer_ = std::make_shared<AudioPlayer>(
-      this->renderAudio(),
+      [this](DSPAudioBuffer *buf, int n) { processGraph(buf, n); },
       getSampleRate(),
       destination_->getChannelCount(),
       &driverMutex_,
@@ -38,7 +36,10 @@ void AudioContext::initialize() {
   audioPlayer_->openAudioStream();
 #else
   audioPlayer_ = std::make_shared<IOSAudioPlayer>(
-      this->renderAudio(), getSampleRate(), destination_->getChannelCount(), currentRenders_);
+      [this](DSPAudioBuffer *buf, int n) { processGraph(buf, n); },
+      getSampleRate(),
+      destination_->getChannelCount(),
+      currentRenders_);
 #endif
 }
 
@@ -70,7 +71,6 @@ void AudioContext::close() {
   waitForRenderQuiescence();
   processAudioEvents();
   audioPlayer_->cleanup();
-  getGraphManager()->cleanup();
 }
 
 bool AudioContext::resume() {
@@ -126,32 +126,8 @@ void AudioContext::waitForRenderQuiescence() const {
   }
 }
 
-std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> AudioContext::renderAudio() {
-  return [this](const std::shared_ptr<DSPAudioBuffer> &data, int frames) {
-    destination_->renderAudio(data, frames);
-  };
-}
-
 bool AudioContext::isDriverRunning() const {
   return audioPlayer_->isRunning();
-}
-
-std::shared_ptr<MediaElementAudioSourceNode> AudioContext::createMediaElementSource(
-    const std::shared_ptr<AudioFileSourceNode> &fileSource) {
-
-  if (fileSource->isRoutedThroughMediaElement()) {
-    return nullptr;
-  }
-
-  auto mediaElementSource = std::make_shared<MediaElementAudioSourceNode>(
-      shared_from_this(),
-      fileSource,
-      MediaElementAudioSourceOptions(static_cast<int>(fileSource->getChannelCount())));
-
-  fileSource->bindMediaElementSource(mediaElementSource->getBindingId());
-
-  graphManager_->addProcessingNode(mediaElementSource);
-  return mediaElementSource;
 }
 
 } // namespace audioapi

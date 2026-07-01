@@ -30,11 +30,10 @@ class AudioContext : public BaseAudioContext {
   bool suspend();
   bool start();
 
-  /// JS thread only — runs synchronously in `BaseAudioContextHostObject` construction.
-  void initialize() override;
-
-  std::shared_ptr<MediaElementAudioSourceNode> createMediaElementSource(
-      const std::shared_ptr<AudioFileSourceNode> &fileSource);
+  /// @brief Initializes native audio player and assigns the audio destination node to the context.
+  /// @param destination The audio destination node to be associated with the context.
+  /// @note This method must be called before the audio context can be used for processing audio.
+  void initialize(const AudioDestinationNode *destination) final;
 
  private:
 #ifdef ANDROID
@@ -48,8 +47,6 @@ class AudioContext : public BaseAudioContext {
   std::atomic<uint32_t> currentRenders_{0};
 
   bool isDriverRunning() const override;
-
-  std::function<void(std::shared_ptr<DSPAudioBuffer>, int)> renderAudio();
 
   /// Caller must hold `driverMutex_`.
   bool tryStartDriver();

@@ -2,6 +2,7 @@ import { AutomationEventData, AutomationEventType } from '../types';
 import { InvalidStateError, NotSupportedError, RangeError } from '../errors';
 import { IAudioParam } from '../jsi-interfaces';
 import type BaseAudioContext from './BaseAudioContext';
+import type AudioNode from './AudioNode';
 
 export default class AudioParam {
   public readonly defaultValue: number;
@@ -10,12 +11,15 @@ export default class AudioParam {
 
   constructor(
     public readonly audioParam: IAudioParam,
-    public readonly context: BaseAudioContext
+    public readonly context: BaseAudioContext,
+    public readonly owner: AudioNode
   ) {
     this.value = audioParam.value;
     this.defaultValue = audioParam.defaultValue;
     this.minValue = audioParam.minValue;
     this.maxValue = audioParam.maxValue;
+    this.context = context;
+    this.owner = owner;
   }
 
   public get value(): number {
